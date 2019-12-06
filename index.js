@@ -3,6 +3,8 @@ const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
 
+app.use(express.static('public'))
+
 app.get('/', function (req, res) {
     res.render('index.ejs');
 });
@@ -21,7 +23,7 @@ io.sockets.on('connection', function (socket) {
     })
 
     socket.on('chat_message', function (message) {
-        console.log(socket);
+        // console.log(socket);
 
         if (socket.username) {
             io.emit('chat_message', '<strong>' + socket.username + "(" + socket.conn.remoteAddress + ")" + '</strong>: ' + message);

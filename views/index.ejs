@@ -45,6 +45,7 @@
       list-style-type: none;
       margin: 0;
       padding: 0;
+      margin-bottom: 90px;
     }
 
     #messages li {
@@ -64,8 +65,15 @@
   <form action="/" method="POST" id="chatForm">
     <input id="txt" autocomplete="off" autofocus="on" oninput="isTyping()"
       placeholder="type your message here..." /><button>Send</button>
+    <button type="button" onclick='$("li").remove()'>Clear</button>
   </form>
   <script>
+    var audio = new Audio("http://localhost:8080/when.mp3")
+
+    function isTyping() {
+
+    }
+
     var socket = io.connect('http://localhost:8080');
     var lastText = ""
 
@@ -84,11 +92,19 @@
     // append the chat text message
     socket.on('chat_message', function (msg) {
       $('#messages').append($('<li>').html(msg));
+
+      window.scrollTo(0, document.body.scrollHeight);
+
+      audio.play();
     });
 
     // append text if someone is online
     socket.on('is_online', function (username) {
       $('#messages').append($('<li>').html(username));
+
+      window.scrollTo(0, document.body.scrollHeight);
+      
+      audio.play();
     });
 
     socket.on('no_user_name', function () {
