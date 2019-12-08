@@ -3,11 +3,13 @@
 
 <head>
   <title>Simple Group Chat on Node.js</title>
+  <script src="jsencrypt.2.3.1..min.js"></script>
   <style>
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      word-wrap: break-word
     }
 
     body {
@@ -45,7 +47,7 @@
       list-style-type: none;
       margin: 0;
       padding: 0;
-      margin-bottom: 90px;
+      margin-bottom: 130px;
     }
 
     #messages li {
@@ -55,6 +57,12 @@
     #messages li:nth-child(odd) {
       background: #eee;
     }
+
+    #chatUser {
+      margin: 10px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
   </style>
   <script src="../../socket.io/socket.io.js"></script>
   <script src="http://code.jquery.com/jquery-1.10.1.min.js"></script>
@@ -63,35 +71,59 @@
 <body>
   <ul id="messages"></ul>
   <form action="/" method="POST" id="chatForm">
-    <input id="txt" autocomplete="off" autofocus="on" oninput="isTyping()"
-      placeholder="type your message here..." /><button>Send</button>
+    <div id="chatUser"></div>
+    <input id="txt" autocomplete="off" autofocus="on" placeholder="type your message here..." />
+    <button>Send</button>
     <button type="button" onclick='$("li").remove()'>Clear</button>
   </form>
   <script>
-    var audio = new Audio("http://localhost:8080/when.mp3")
+    var crypt = null
+    var privateKey = null
+    var publicKey = null
+    var chatUser = null
 
-    function isTyping() {
+    generateKeypair()
 
-    }
-
-    var socket = io.connect('http://localhost:8080');
+    var serverUrl = "http://localhost:8080"
+    var audio = new Audio(serverUrl + "/when.mp3")
+    var socket = io.connect(serverUrl);
     var lastText = ""
+
 
     // submit text message without reload/refresh the page
     $('form').submit(function (e) {
       e.preventDefault(); // prevents page reloading
 
       lastText = getProcessedMessage($('#txt').val())
+
+      if (!lastText)
+        return;
+
       $('#txt').val("")
 
-      socket.emit('chat_message', lastText);
+      if (chatUser) {
+        var encryptedMessage = encrypt(lastText, chatUser.publicKey)
+
+        socket.emit('chat_message', { userName: chatUser.userName, text: encryptedMessage });
+
+        appendMessage('<strong>' + userName + '</strong>: ' + lastText)
+        audio.play();
+      } else {
+        appendMessage(`No logged user, message is not sent: ${lastText}`)
+      }
 
       return false;
     });
 
     // append the chat text message
     socket.on('chat_message', function (msg) {
-      $('#messages').append($('<li>').html(msg));
+      var decryptedMessage = decrypt(msg.text)
+
+      if (decryptedMessage) {
+        appendMessage(msg.appendText + decryptedMessage)
+      } else {
+        appendMessage(`Something wrong, please retry the message`)
+      }
 
       window.scrollTo(0, document.body.scrollHeight);
 
@@ -99,27 +131,65 @@
     });
 
     // append text if someone is online
-    socket.on('is_online', function (username) {
-      $('#messages').append($('<li>').html(username));
+    socket.on('is_online', function (userName) {
+      appendMessage(userName)
 
       window.scrollTo(0, document.body.scrollHeight);
-      
+
       audio.play();
     });
 
     socket.on('no_user_name', function () {
-
-      socket.emit('username', username);
+      sendNewUser()
 
       socket.emit('chat_message', lastText);
     })
 
-    // ask username
-    var username = prompt('Please tell me your name');
-    socket.emit('username', username);
+    socket.on('users', function (usersKey) {
+      chatUser = usersKey.find(m => m && m.publicKey && m.publicKey != publicKey)
+      if (chatUser) {
+        setUserNameToChat(chatUser.userName)
+      }
+    })
+
+    // ask userName
+    var userName = prompt('Please tell me your name');
+    sendNewUser()
 
     function getProcessedMessage(msg) {
-      return msg.replace(/(https?:\/\/.*) ?/i, "<a href='$1'>$1</a>")
+      return msg.replace(/(https?:\/\/.*) ?/i, "<a href='$1' target='_blank'>$1</a>")
+    }
+
+    function sendNewUser() {
+      socket.emit('userName', { userName, publicKey })
+    }
+
+    function appendMessage(message) {
+      $('#messages').append($('<li>').html(message));
+    }
+
+    function setUserNameToChat(chatUserName) {
+      $("#chatUser").html(`Your username is <span style='font-sie:20px;'><b>${userName}</b></span> <br>
+      The user to which the messages are encrypted is:  <span style='font-size:20px;'><b> ${chatUserName} </b></span>`)
+    }
+
+    /** Generate and store keypair */
+    function generateKeypair() {
+      crypt = new JSEncrypt({ default_key_size: 2056 })
+      privateKey = crypt.getPrivateKey()
+      publicKey = crypt.getPublicKey()
+    }
+
+    /** Encrypt the provided string with the destination public key */
+    function encrypt(content, publicKey) {
+      crypt.setKey(publicKey)
+      return crypt.encrypt(content)
+    }
+
+    /** Decrypt the provided string with the local private key */
+    function decrypt(content) {
+      crypt.setKey(privateKey)
+      return crypt.decrypt(content)
     }
 
   </script>

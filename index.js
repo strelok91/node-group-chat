@@ -10,23 +10,43 @@ app.get('/', function (req, res) {
 });
 
 io.sockets.on('connection', function (socket) {
-    io.emit("is_online", `new user connected: ${socket.conn.remoteAddress}`)
+    console.log(`Connectes sockets: ${Object.keys(io.sockets.sockets).length}`)
+    if (Object.keys(io.sockets.sockets).length > 2) {
+        socket.disconnect()
+    }
 
-    socket.on('username', function (username) {
-        socket.username = username;
-        io.emit('is_online', '🔵 <i>' + socket.username + ' join the chat..</i>');
+    io.emit("is_online", `new user connected: ${socket.conn.remoteAddress}`)
+    console.log(socket.conn.remoteAddress)
+
+    socket.on('userName', function (userData) {
+
+        socket.userName = userData.userName;
+        socket.publicKey = userData.publicKey;
+
+        console.log(`${socket.conn.remoteAddress} - ${socket.userName}`)
+
+        setTimeout(() => {
+            var userKeys = Object.values(io.sockets.sockets).map(m => {
+                return { userName: m.userName, publicKey: m.publicKey }
+            })
+
+            io.emit('is_online', '🔵 <i>' + socket.userName + ' join the chat..</i>');
+            io.emit('users', userKeys)
+        }, 10)
     });
 
     socket.on('disconnect', function (username) {
-        io.emit('is_online', '🔴 <i>' + socket.username + ' left the chat..</i>');
+        io.emit('is_online', '🔴 <i>' + socket.userName + ' left the chat..</i>');
         socket.leaveAll()
     })
 
     socket.on('chat_message', function (message) {
-        // console.log(socket);
+        if (socket.userName) {
+            var userSocket = Object.values(io.sockets.sockets).find(m => m && m.userName == message.userName)
 
-        if (socket.username) {
-            io.emit('chat_message', '<strong>' + socket.username + "(" + socket.conn.remoteAddress + ")" + '</strong>: ' + message);
+            if (userSocket) {
+                userSocket.emit('chat_message', { userName: socket.userName, appendText: '<strong>' + socket.userName + '</strong>: ', text: message.text })
+            }
         } else {
             socket.emit("no_user_name", "");
         }
