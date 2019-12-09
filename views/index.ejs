@@ -47,7 +47,7 @@
       list-style-type: none;
       margin: 0;
       padding: 0;
-      margin-bottom: 130px;
+      margin-bottom: 150px;
     }
 
     #messages li {
@@ -166,6 +166,8 @@
 
     function appendMessage(message) {
       $('#messages').append($('<li>').html(message));
+        
+      window.scrollTo(0, document.body.scrollHeight);
     }
 
     function setUserNameToChat(chatUserName) {
