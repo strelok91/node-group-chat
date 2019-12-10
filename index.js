@@ -37,6 +37,9 @@ io.sockets.on('connection', function (socket) {
 
     socket.on('disconnect', function (username) {
         io.emit('is_online', '🔴 <i>' + socket.userName + ' left the chat..</i>');
+        
+        console.log(`${socket.conn.remoteAddress} - ${socket.userName} - disconnected`)
+
         socket.leaveAll()
     })
 
